@@ -1,6 +1,3 @@
-bash
-
-cat > /home/claude/trackerapple.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -241,6 +238,8 @@ cat > /home/claude/trackerapple.html << 'HTMLEOF'
       box-shadow:0 8px 28px rgba(10,132,255,.55),inset 0 1px 0 rgba(255,255,255,.3);
       transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
       position:relative;z-index:201;
+      outline:none;
+      -webkit-tap-highlight-color:transparent;
     }
     .fab-btn:active { transform:scale(.9); }
     .fab-btn.open   { transform:rotate(45deg); box-shadow:0 8px 28px rgba(10,132,255,.35),inset 0 1px 0 rgba(255,255,255,.3); }
@@ -338,6 +337,7 @@ cat > /home/claude/trackerapple.html << 'HTMLEOF'
       display:flex;align-items:center;justify-content:center;cursor:pointer;
       backdrop-filter:blur(12px);box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.12);
       transition:all .18s ease;
+      outline:none;-webkit-tap-highlight-color:transparent;
     }
     .month-nav-btn:hover  { background:rgba(255,255,255,.14);color:var(--text);transform:scale(1.06); }
     .month-nav-btn:active { transform:scale(.95); }
@@ -349,21 +349,24 @@ cat > /home/claude/trackerapple.html << 'HTMLEOF'
 
     .cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:3px; }
     .cal-day {
-      /* Fixed small size — not aspect-ratio stretch */
-      height:36px;
+      border-radius:8px;
+      position:relative;
+    }
+    .cal-day-inner {
       border-radius:8px;
       display:flex;flex-direction:column;
       align-items:center;justify-content:center;
-      position:relative;
+      aspect-ratio:1;
+      width:100%;
     }
-    .cal-day.empty  { background:transparent; }
-    .cal-day.future { background:rgba(255,255,255,.03);color:var(--text3); }
-    .cal-day.heat-0 { background:rgba(255,255,255,.05);color:var(--text3); }
-    .cal-day.heat-1 { background:rgba(48,209,88,.18);color:rgba(255,255,255,.6); }
-    .cal-day.heat-2 { background:rgba(48,209,88,.38);color:rgba(255,255,255,.8); }
-    .cal-day.heat-3 { background:rgba(48,209,88,.62);color:#fff; }
-    .cal-day.heat-4 { background:rgba(48,209,88,.85);color:#fff;box-shadow:0 0 8px rgba(48,209,88,.4); }
-    .cal-day.today-ring { box-shadow:0 0 0 2px var(--blue); }
+    .cal-day.empty .cal-day-inner  { background:transparent; }
+    .cal-day.future .cal-day-inner { background:rgba(255,255,255,.03);color:var(--text3); }
+    .cal-day.heat-0 .cal-day-inner { background:rgba(255,255,255,.05);color:var(--text3); }
+    .cal-day.heat-1 .cal-day-inner { background:rgba(48,209,88,.18);color:rgba(255,255,255,.6); }
+    .cal-day.heat-2 .cal-day-inner { background:rgba(48,209,88,.38);color:rgba(255,255,255,.8); }
+    .cal-day.heat-3 .cal-day-inner { background:rgba(48,209,88,.62);color:#fff; }
+    .cal-day.heat-4 .cal-day-inner { background:rgba(48,209,88,.85);color:#fff;box-shadow:0 0 8px rgba(48,209,88,.4); }
+    .cal-day.today-ring .cal-day-inner { box-shadow:0 0 0 2px var(--blue); }
     .cal-day-num { font-size:11px;font-weight:600;line-height:1; }
     .cal-day-pct { font-size:8px;font-weight:500;opacity:.75;margin-top:1px; }
 
@@ -404,7 +407,9 @@ cat > /home/claude/trackerapple.html << 'HTMLEOF'
     .year-mini-dow-cell { text-align:center;font-size:9px;font-weight:600;color:var(--text3); }
     .year-mini-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:2px; }
     .year-mini-day {
-      height:28px;border-radius:4px;
+      aspect-ratio:1;
+      min-height:24px;
+      border-radius:4px;
       display:flex;align-items:center;justify-content:center;
       font-size:9px;font-weight:600;
     }
@@ -847,7 +852,7 @@ function renderMonth() {
   var daysInMonth = new Date(y,m+1,0).getDate();
 
   var html='';
-  for(var i=0;i<firstDay;i++) html+='<div class="cal-day empty"></div>';
+  for(var i=0;i<firstDay;i++) html+='<div class="cal-day empty"><div class="cal-day-inner"></div></div>';
   for(var d=1;d<=daysInMonth;d++){
     var key      = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var cellDate = new Date(y,m,d);
@@ -860,7 +865,7 @@ function renderMonth() {
     else if(rec){ cls+=' heat-'+heatLevel(rec.pct); pctLabel=rec.pct+'%'; }
     else { cls+=' heat-0'; }
     if(isToday) cls+=' today-ring';
-    html+='<div class="'+cls+'"><span class="cal-day-num">'+d+'</span>'+(pctLabel?'<span class="cal-day-pct">'+pctLabel+'</span>':'')+'</div>';
+    html+='<div class="'+cls+'"><div class="cal-day-inner"><span class="cal-day-num">'+d+'</span>'+(pctLabel?'<span class="cal-day-pct">'+pctLabel+'</span>':'')+'</div></div>';
   }
   document.getElementById('cal-grid').innerHTML = html;
 
