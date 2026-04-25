@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Focus — Daily Tracker</title>
+  <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #000000;
+      --glass:      rgba(255,255,255,0.055);
+      --glass2:     rgba(255,255,255,0.09);
+      --glass3:     rgba(255,255,255,0.13);
+      --border:     rgba(255,255,255,0.10);
+      --border2:    rgba(255,255,255,0.18);
+      --shine:      rgba(255,255,255,0.12);
+      --text:       #ffffff;
+      --text2:      rgba(255,255,255,0.52);
+      --text3:      rgba(255,255,255,0.26);
+      --blue:       #0a84ff;
+      --blue-soft:  rgba(10,132,255,0.18);
+      --green:      #30d158;
+      --green-soft: rgba(48,209,88,0.16);
+      --red:        #ff453a;
+      --red-soft:   rgba(255,69,58,0.15);
+      --gold:       #ffd60a;
+      --r-sm: 12px; --r: 18px; --r-lg: 24px; --r-xl: 30px;
+      --card-bg:     rgba(255,255,255,0.06);
+      --card-border: rgba(255,255,255,0.11);
+      --card-shadow: 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 var(--shine);
+      --card-blur:   blur(28px);
+    }
+
+    html { -webkit-font-smoothing: antialiased; }
+
+    body {
+      background: var(--bg);
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .glows { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+    .g { position:absolute; border-radius:50%; filter:blur(140px); }
+    .g1 { width:600px;height:600px;background:#0a84ff;top:-200px;left:-160px;opacity:.18; }
+    .g2 { width:440px;height:440px;background:#30d158;bottom:-100px;right:-80px;opacity:.12; }
+    .g3 { width:320px;height:320px;background:#5e5ce6;top:40%;left:55%;opacity:.10; }
+    .g4 { width:250px;height:250px;background:#ff453a;top:60%;left:10%;opacity:.06; }
+
+    .page { position:relative;z-index:1;max-width:430px;margin:0 auto;padding:52px 20px 110px; }
+
+    .header { margin-bottom:28px; animation:fadeUp .5s ease both; }
+    .greeting { font-size:13px;font-weight:500;color:var(--text2);margin-bottom:5px; }
+    .title { font-size:33px;font-weight:700;letter-spacing:-.5px;line-height:1.1; }
+    .title span { color:var(--blue); }
+
+    /* Tab bar */
+    .tab-bar {
+      display:flex;gap:3px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,.10);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      border-radius:14px;padding:4px;margin-bottom:20px;
+      box-shadow:0 4px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12);
+      animation:fadeUp .5s .05s ease both;
+    }
+    .tab {
+      flex:1;border:none;background:transparent;color:var(--text2);
+      font-family:inherit;font-size:13px;font-weight:500;padding:9px 4px;
+      border-radius:10px;cursor:pointer;transition:all .22s ease;
+    }
+    .tab.active {
+      background:rgba(255,255,255,0.13);color:var(--text);
+      box-shadow:0 2px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.16);
+    }
+
+    .view { display:none; }
+    .view.active { display:block; }
+
+    /* ── Today ─────────────────────────────────── */
+    .progress-card {
+      background:linear-gradient(135deg,rgba(255,255,255,0.09) 0%,rgba(255,255,255,0.04) 100%);
+      border:1px solid rgba(255,255,255,.12);border-radius:var(--r-xl);
+      padding:22px;margin-bottom:16px;display:flex;align-items:center;gap:18px;
+      backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+      box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.15);
+      animation:fadeUp .5s .08s ease both;position:relative;overflow:hidden;
+    }
+    .progress-card::before {
+      content:'';position:absolute;top:0;left:0;right:0;height:50%;
+      background:linear-gradient(180deg,rgba(255,255,255,.05) 0%,transparent 100%);pointer-events:none;
+    }
+    .ring-wrap { position:relative;width:70px;height:70px;flex-shrink:0; }
+    .ring-wrap svg { transform:rotate(-90deg); }
+    .ring-bg   { fill:none;stroke:rgba(255,255,255,.08);stroke-width:6; }
+    .ring-fill {
+      fill:none;stroke:var(--blue);stroke-width:6;stroke-linecap:round;
+      stroke-dasharray:188;stroke-dashoffset:188;
+      transition:stroke-dashoffset .8s cubic-bezier(.34,1.56,.64,1);
+      filter:drop-shadow(0 0 9px rgba(10,132,255,.75));
+    }
+    .ring-label { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center; }
+    .ring-pct   { font-size:16px;font-weight:700;line-height:1; }
+    .ring-sub   { font-size:9px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);margin-top:2px; }
+    .progress-info { flex:1; }
+    .progress-title { font-size:16px;font-weight:600;margin-bottom:3px; }
+    .progress-sub   { font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.45; }
+    .mini-stats { display:flex;gap:8px;flex-wrap:wrap; }
+    .mini-stat  { display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--text2); }
+    .mini-dot   { width:6px;height:6px;border-radius:50%; }
+
+    .input-card {
+      background:linear-gradient(160deg,rgba(255,255,255,0.09) 0%,rgba(255,255,255,0.04) 100%);
+      border:1px solid rgba(255,255,255,.12);border-radius:var(--r-lg);
+      overflow:hidden;margin-bottom:22px;backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+      box-shadow:0 6px 32px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.15);
+      animation:fadeUp .5s .14s ease both;transition:box-shadow .25s,border-color .25s;
+    }
+    .input-card:focus-within {
+      border-color:rgba(10,132,255,.45);
+      box-shadow:0 6px 32px rgba(0,0,0,.4),0 0 0 3px rgba(10,132,255,.18),inset 0 1px 0 rgba(255,255,255,.15);
+    }
+    .input-row { display:flex;align-items:center;padding:15px 17px;gap:11px; }
+    .input-icon {
+      width:30px;height:30px;border-radius:9px;
+      display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+      border:1px solid rgba(255,255,255,.10);transition:all .2s;
+    }
+    .input-icon.todo  { background:rgba(10,132,255,.18); }
+    .input-icon.habit { background:rgba(48,209,88,.16); }
+    #task-input { flex:1;background:none;border:none;outline:none;font-family:inherit;font-size:15px;color:var(--text);caret-color:var(--blue); }
+    #task-input::placeholder { color:var(--text3); }
+    /* Glass add button */
+    .add-btn {
+      background:linear-gradient(135deg,rgba(10,132,255,0.85) 0%,rgba(10,100,255,0.95) 100%);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.22);
+      border-radius:10px;width:34px;height:34px;font-size:22px;font-weight:300;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      transition:all .18s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 4px 16px rgba(10,132,255,.45),inset 0 1px 0 rgba(255,255,255,.3);
+    }
+    .add-btn:hover  { transform:scale(1.08);box-shadow:0 6px 22px rgba(10,132,255,.6),inset 0 1px 0 rgba(255,255,255,.3); }
+    .add-btn:active { transform:scale(.94); }
+    .type-row { border-top:1px solid rgba(255,255,255,.07);padding:10px 17px;display:flex;gap:8px; }
+    /* Glass chips */
+    .type-chip {
+      display:flex;align-items:center;gap:5px;padding:6px 13px;border-radius:100px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,0.05);
+      backdrop-filter:blur(12px);
+      font-family:inherit;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;
+      transition:all .18s ease;
+      box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .type-chip:hover { background:rgba(255,255,255,.09);color:var(--text); }
+    .type-chip.active.todo-chip {
+      background:rgba(10,132,255,.18);border-color:rgba(10,132,255,.4);color:var(--blue);
+      box-shadow:0 2px 12px rgba(10,132,255,.25),inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    .type-chip.active.habit-chip {
+      background:rgba(48,209,88,.16);border-color:rgba(48,209,88,.4);color:var(--green);
+      box-shadow:0 2px 12px rgba(48,209,88,.22),inset 0 1px 0 rgba(255,255,255,.10);
+    }
+
+    .section-label { font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;padding:0 4px;display:flex;align-items:center;justify-content:space-between; }
+    .section-label-count { font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:12px; }
+
+    .tasks-group { display:flex;flex-direction:column;gap:2px;animation:fadeUp .5s .18s ease both; }
+    .task-card {
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.04) 100%);
+      border:1px solid rgba(255,255,255,.10);border-radius:var(--r);
+      padding:14px 16px;display:flex;align-items:center;gap:12px;
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      box-shadow:0 4px 20px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.09);
+      transition:all .22s ease;animation:slideIn .3s ease both;position:relative;overflow:hidden;
+    }
+    .task-card::before {
+      content:'';position:absolute;top:0;left:0;right:0;height:40%;
+      background:linear-gradient(180deg,rgba(255,255,255,.05) 0%,transparent 100%);pointer-events:none;
+    }
+    .task-card:first-child  { border-radius:var(--r) var(--r) var(--r-sm) var(--r-sm); }
+    .task-card:last-child   { border-radius:var(--r-sm) var(--r-sm) var(--r) var(--r); }
+    .task-card:only-child   { border-radius:var(--r); }
+    .task-card + .task-card { border-top-color:transparent; }
+    .task-card:hover {
+      background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.06) 100%);
+      transform:translateY(-1px);
+      box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    .task-card.done { opacity:.4; }
+    .task-card.done .task-name { text-decoration:line-through;color:var(--text2); }
+
+    /* Glass checkbox */
+    .check {
+      width:25px;height:25px;border-radius:50%;
+      border:1.5px solid rgba(255,255,255,.2);
+      background:rgba(255,255,255,.05);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+      transition:all .22s cubic-bezier(.34,1.56,.64,1);font-size:11px;color:#fff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 2px 6px rgba(0,0,0,.2);
+    }
+    .check:hover {
+      border-color:rgba(10,132,255,.7);background:rgba(10,132,255,.12);transform:scale(1.12);
+      box-shadow:0 0 12px rgba(10,132,255,.3),inset 0 1px 0 rgba(255,255,255,.15);
+    }
+    .task-card.done .check {
+      background:linear-gradient(135deg,rgba(48,209,88,.9),rgba(30,180,70,.9));
+      border-color:rgba(48,209,88,.6);transform:scale(1);
+      box-shadow:0 0 14px rgba(48,209,88,.45),inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    .task-card.type-habit .check:hover {
+      border-color:rgba(48,209,88,.7);background:rgba(48,209,88,.12);
+      box-shadow:0 0 12px rgba(48,209,88,.3),inset 0 1px 0 rgba(255,255,255,.15);
+    }
+
+    .task-info { flex:1;min-width:0; }
+    .task-name { font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3; }
+    .task-meta { display:flex;align-items:center;gap:6px;margin-top:3px; }
+    .type-tag  { font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;backdrop-filter:blur(8px);border:1px solid transparent; }
+    .type-tag.todo  { background:rgba(10,132,255,.15);color:var(--blue);border-color:rgba(10,132,255,.25); }
+    .type-tag.habit { background:rgba(48,209,88,.13);color:var(--green);border-color:rgba(48,209,88,.25); }
+    .streak-tag { font-size:11px;color:var(--gold);font-weight:500; }
+
+    /* Glass delete button */
+    .del-btn {
+      background:rgba(255,255,255,.04);border:1px solid transparent;
+      color:var(--text3);font-size:13px;cursor:pointer;
+      width:26px;height:26px;border-radius:8px;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .15s;opacity:0;backdrop-filter:blur(8px);
+    }
+    .task-card:hover .del-btn { opacity:1; }
+    .del-btn:hover { color:var(--red);background:rgba(255,69,58,.15);border-color:rgba(255,69,58,.25);box-shadow:0 2px 8px rgba(255,69,58,.2); }
+
+    .empty { text-align:center;padding:44px 24px;animation:fadeUp .5s ease both; }
+    .empty-icon { font-size:38px;margin-bottom:11px;display:block; }
+    .empty-title { font-size:17px;font-weight:600;margin-bottom:6px; }
+    .empty-sub { font-size:14px;color:var(--text2);line-height:1.5; }
+    .list-divider { height:18px; }
+
+    /* ── Month / Year shared ───────────────────── */
+    .overview-card {
+      background:linear-gradient(145deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      border:1px solid rgba(255,255,255,.11);border-radius:var(--r-xl);
+      padding:22px;margin-bottom:16px;
+      backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+      box-shadow:0 10px 48px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.15);
+      animation:fadeUp .4s ease both;position:relative;overflow:hidden;
+    }
+    .overview-card::before {
+      content:'';position:absolute;top:0;left:0;right:0;height:40%;
+      background:linear-gradient(180deg,rgba(255,255,255,.05) 0%,transparent 100%);pointer-events:none;
+    }
+    .ov-header { display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;position:relative; }
+    .ov-title  { font-size:20px;font-weight:700;letter-spacing:-.3px; }
+    .ov-sub    { font-size:12px;color:var(--text2); }
+
+    /* ── Month ─────────────────────────────────── */
+    .month-nav { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;position:relative; }
+    /* Glass nav buttons */
+    .month-nav-btn {
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,.16);border-radius:10px;
+      color:var(--text2);font-size:18px;width:36px;height:36px;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
+      backdrop-filter:blur(12px);
+      box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.12);
+      transition:all .18s ease;
+    }
+    .month-nav-btn:hover {
+      background:rgba(255,255,255,.14);color:var(--text);
+      box-shadow:0 4px 16px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.18);
+      transform:scale(1.06);
+    }
+    .month-nav-btn:active { transform:scale(.95); }
+    .month-nav-label { font-size:15px;font-weight:600; }
+
+    .dow-row { display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px; }
+    .dow-cell { text-align:center;font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--text3);padding:2px 0; }
+
+    .cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:4px; }
+    .cal-day {
+      aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;cursor:default;position:relative;
+    }
+    .cal-day.empty  { background:transparent; }
+    .cal-day.future { background:rgba(255,255,255,.03);color:var(--text3); }
+    .cal-day.heat-0 { background:rgba(255,255,255,.05);color:var(--text3); }
+    .cal-day.heat-1 { background:rgba(48,209,88,.18);color:rgba(255,255,255,.6); }
+    .cal-day.heat-2 { background:rgba(48,209,88,.38);color:rgba(255,255,255,.8); }
+    .cal-day.heat-3 { background:rgba(48,209,88,.62);color:#fff; }
+    .cal-day.heat-4 { background:rgba(48,209,88,.85);color:#fff;box-shadow:0 0 8px rgba(48,209,88,.4); }
+    .cal-day.today-ring { box-shadow:0 0 0 2px var(--blue); }
+    .cal-day-num { font-size:12px;font-weight:600;line-height:1; }
+    .cal-day-pct { font-size:8px;font-weight:500;opacity:.8;margin-top:1px; }
+
+    .month-stats { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px; }
+    .m-stat {
+      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:13px 10px;text-align:center;
+      backdrop-filter:blur(12px);box-shadow:0 2px 12px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.10);
+    }
+    .m-stat-val { font-size:22px;font-weight:700;letter-spacing:-.5px; }
+    .m-stat-lbl { font-size:10px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);margin-top:2px; }
+
+    /* ── Year ──────────────────────────────────── */
+    .year-scroll { overflow-x:auto;padding-bottom:4px; }
+    .year-scroll::-webkit-scrollbar { height:0; }
+    .year-grid-wrap { min-width:580px; }
+
+    .year-month-labels { display:flex;margin-bottom:4px;padding-left:20px; }
+    .year-month-lbl    { font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.02em;flex-shrink:0; }
+
+    .year-body       { display:flex;gap:0; }
+    .year-dow-labels { display:flex;flex-direction:column;gap:2px;margin-right:4px; }
+    .year-dow-lbl    { font-size:9px;color:var(--text3);height:12px;display:flex;align-items:center;font-weight:500; }
+
+    .year-weeks { display:flex;gap:2px; }
+    .year-week  { display:flex;flex-direction:column;gap:2px; }
+    .year-cell  { width:12px;height:12px;border-radius:2px;transition:transform .1s;cursor:default; }
+    .year-cell:hover { transform:scale(1.5); }
+    .year-cell.empty  { background:transparent; }
+    .year-cell.heat-0 { background:rgba(255,255,255,.06); }
+    .year-cell.heat-1 { background:rgba(48,209,88,.22); }
+    .year-cell.heat-2 { background:rgba(48,209,88,.45); }
+    .year-cell.heat-3 { background:rgba(48,209,88,.68); }
+    .year-cell.heat-4 { background:rgba(48,209,88,.9); }
+
+    .heat-legend { display:flex;align-items:center;gap:5px;margin-top:12px;justify-content:flex-end; }
+    .heat-legend span { font-size:10px;color:var(--text3); }
+    .legend-cell { width:11px;height:11px;border-radius:2px; }
+
+    .year-stats { display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px; }
+    .y-stat {
+      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 14px;
+      backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.10);
+    }
+    .y-stat-val { font-size:28px;font-weight:700;letter-spacing:-.8px; }
+    .y-stat-lbl { font-size:11px;font-weight:500;color:var(--text2);margin-top:3px; }
+    .blue  { color:var(--blue); }
+    .green { color:var(--green); }
+    .gold  { color:var(--gold); }
+
+    @keyframes fadeUp  { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideIn { from{opacity:0;transform:translateY(6px) scale(.99)} to{opacity:1;transform:translateY(0) scale(1)} }
+  </style>
+</head>
+<body>
+
+<div class="glows">
+  <div class="g g1"></div><div class="g g2"></div><div class="g g3"></div><div class="g g4"></div>
+</div>
+
+<div class="page">
+
+  <div class="header">
+    <p class="greeting" id="greeting"></p>
+    <h1 class="title">My <span>Focus</span></h1>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tab-today" onclick="switchTab('today')">Today</button>
+    <button class="tab"        id="tab-month" onclick="switchTab('month')">Month</button>
+    <button class="tab"        id="tab-year"  onclick="switchTab('year')">Year</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="view active" id="view-today">
+    <div class="progress-card">
+      <div class="ring-wrap">
+        <svg width="70" height="70" viewBox="0 0 70 70">
+          <circle class="ring-bg"   cx="35" cy="35" r="30"/>
+          <circle class="ring-fill" id="ring" cx="35" cy="35" r="30"/>
+        </svg>
+        <div class="ring-label">
+          <span class="ring-pct" id="ring-pct">0%</span>
+          <span class="ring-sub">done</span>
+        </div>
+      </div>
+      <div class="progress-info">
+        <div class="progress-title" id="progress-title">Let's begin</div>
+        <div class="progress-sub"   id="progress-sub">Add your first task below.</div>
+        <div class="mini-stats">
+          <div class="mini-stat"><div class="mini-dot" style="background:var(--blue)"></div><span id="stat-tasks">0 tasks</span></div>
+          <div class="mini-stat"><div class="mini-dot" style="background:var(--green)"></div><span id="stat-habits">0 habits</span></div>
+          <div class="mini-stat"><div class="mini-dot" style="background:var(--gold)"></div><span id="stat-streaks">0 streaks</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-card">
+      <div class="input-row">
+        <div class="input-icon todo" id="input-icon">✓</div>
+        <input type="text" id="task-input" placeholder="Add a task or habit…"/>
+        <button class="add-btn" id="add-btn">＋</button>
+      </div>
+      <div class="type-row">
+        <button class="type-chip todo-chip active" id="chip-todo">✓ Task</button>
+        <button class="type-chip habit-chip"       id="chip-habit">↺ Habit</button>
+      </div>
+    </div>
+
+    <div id="main-list"></div>
+  </div>
+
+  <!-- MONTH -->
+  <div class="view" id="view-month">
+    <div class="overview-card">
+      <div class="month-nav">
+        <button class="month-nav-btn" id="month-prev">‹</button>
+        <span class="month-nav-label" id="month-nav-label"></span>
+        <button class="month-nav-btn" id="month-next">›</button>
+      </div>
+      <div class="dow-row">
+        <div class="dow-cell">S</div><div class="dow-cell">M</div><div class="dow-cell">T</div>
+        <div class="dow-cell">W</div><div class="dow-cell">T</div><div class="dow-cell">F</div><div class="dow-cell">S</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="month-stats" id="month-stats"></div>
+    </div>
+  </div>
+
+  <!-- YEAR -->
+  <div class="view" id="view-year">
+    <div class="overview-card">
+      <div class="ov-header">
+        <span class="ov-title" id="year-title"></span>
+        <span class="ov-sub">Daily completion</span>
+      </div>
+      <div class="year-scroll">
+        <div class="year-grid-wrap">
+          <div class="year-month-labels" id="year-month-labels"></div>
+          <div class="year-body">
+            <div class="year-dow-labels" id="year-dow-labels"></div>
+            <div class="year-weeks" id="year-weeks"></div>
+          </div>
+        </div>
+      </div>
+      <div class="heat-legend">
+        <span>Less</span>
+        <div class="legend-cell heat-0"></div><div class="legend-cell heat-1"></div>
+        <div class="legend-cell heat-2"></div><div class="legend-cell heat-3"></div>
+        <div class="legend-cell heat-4"></div>
+        <span>More</span>
+      </div>
+      <div class="year-stats" id="year-stats"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════
+//  STATE
+// ═══════════════════════════════
+var tasks   = JSON.parse(localStorage.getItem('focus-tasks')   || '[]');
+var history = JSON.parse(localStorage.getItem('focus-history') || '{}');
+var mode    = 'todo';
+var calMonth;
+var today   = new Date();
+var todayKey = dateKey(today);
+
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// Greeting
+var hour  = today.getHours();
+var greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+document.getElementById('greeting').textContent = greet + ' 👋';
+
+// ═══════════════════════════════
+//  HELPERS
+// ═══════════════════════════════
+function dateKey(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function heatLevel(pct) {
+  if (!pct) return 0;
+  if (pct < 30)  return 1;
+  if (pct < 60)  return 2;
+  if (pct < 90)  return 3;
+  return 4;
+}
+
+// ═══════════════════════════════
+//  SAVE
+// ═══════════════════════════════
+function save() {
+  localStorage.setItem('focus-tasks', JSON.stringify(tasks));
+  var total = tasks.length;
+  var done  = tasks.filter(function(t){ return t.done; }).length;
+  if (total > 0) {
+    history[todayKey] = { total: total, done: done, pct: Math.round(done/total*100) };
+  }
+  localStorage.setItem('focus-history', JSON.stringify(history));
+}
+
+// ═══════════════════════════════
+//  TABS
+// ═══════════════════════════════
+function switchTab(tab) {
+  ['today','month','year'].forEach(function(t) {
+    document.getElementById('view-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-'  + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'month') renderMonth();
+  if (tab === 'year')  renderYear();
+}
+
+// ═══════════════════════════════
+//  TYPE TOGGLE
+// ═══════════════════════════════
+function setType(t) {
+  mode = t;
+  document.getElementById('chip-todo').classList.toggle('active', t === 'todo');
+  document.getElementById('chip-habit').classList.toggle('active', t === 'habit');
+  var icon = document.getElementById('input-icon');
+  icon.className = 'input-icon ' + t;
+  icon.textContent = t === 'todo' ? '✓' : '↺';
+  document.getElementById('task-input').placeholder =
+    t === 'todo' ? 'What needs to get done?' : 'What habit to build?';
+}
+
+// ═══════════════════════════════
+//  ADD / TOGGLE / DELETE
+// ═══════════════════════════════
+function addTask() {
+  var inp  = document.getElementById('task-input');
+  var text = inp.value.trim();
+  if (!text) { inp.focus(); return; }
+  tasks.unshift({ id: Date.now(), text: text, type: mode, done: false, streak: 0 });
+  save(); renderToday(); inp.value = '';
+}
+
+function toggle(id) {
+  var t = tasks.find(function(t){ return t.id === id; });
+  if (!t) return;
+  t.done = !t.done;
+  if (t.type === 'habit' &&  t.done) t.streak++;
+  if (t.type === 'habit' && !t.done && t.streak > 0) t.streak--;
+  save(); renderToday();
+}
+
+function del(id) {
+  tasks = tasks.filter(function(t){ return t.id !== id; });
+  save(); renderToday();
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════════════════════
+//  TODAY RENDER
+// ═══════════════════════════════
+function renderToday() {
+  var active = tasks.filter(function(t){ return !t.done; });
+  var done   = tasks.filter(function(t){ return  t.done; });
+  var all    = tasks.length;
+  var doneN  = done.length;
+  var pct    = all ? Math.round(doneN/all*100) : 0;
+  var habits = tasks.filter(function(t){ return t.type === 'habit'; });
+  var streaks= tasks.filter(function(t){ return t.streak > 0; }).length;
+
+  var circ = 188;
+  document.getElementById('ring').style.strokeDashoffset = circ - (circ * pct / 100);
+  document.getElementById('ring-pct').textContent = pct + '%';
+
+  var ptitle = "Let's begin", psub = 'Add your first task below.';
+  if (all > 0 && pct === 0)   { ptitle = 'Ready 💪';       psub = all + ' item' + (all>1?'s':'') + ' to tackle.'; }
+  if (pct > 0 && pct < 50)    { ptitle = 'Good start!';    psub = doneN + ' of ' + all + ' done. Keep going.'; }
+  if (pct >= 50 && pct < 100) { ptitle = 'Halfway 🔥';     psub = doneN + ' of ' + all + ' done. Nearly there!'; }
+  if (pct === 100 && all > 0) { ptitle = 'All done! 🎉';   psub = 'You crushed today.'; }
+  document.getElementById('progress-title').textContent = ptitle;
+  document.getElementById('progress-sub').textContent   = psub;
+
+  var tc = tasks.filter(function(t){ return t.type==='todo'; }).length;
+  document.getElementById('stat-tasks').textContent   = tc + ' task' + (tc!==1?'s':'');
+  document.getElementById('stat-habits').textContent  = habits.length + ' habit' + (habits.length!==1?'s':'');
+  document.getElementById('stat-streaks').textContent = streaks + ' streak' + (streaks!==1?'s':'');
+
+  var container = document.getElementById('main-list');
+  if (!all) {
+    container.innerHTML = '<div class="empty"><span class="empty-icon">🎯</span><div class="empty-title">Nothing planned yet</div><div class="empty-sub">Add a task or daily habit above.</div></div>';
+    return;
+  }
+  var html = '';
+  if (active.length) {
+    html += '<div class="section-label">Today <span class="section-label-count">' + active.length + ' remaining</span></div>';
+    html += '<div class="tasks-group">' + active.map(taskHTML).join('') + '</div>';
+  }
+  if (done.length) {
+    if (active.length) html += '<div class="list-divider"></div>';
+    html += '<div class="section-label">Completed <span class="section-label-count">' + done.length + ' done</span></div>';
+    html += '<div class="tasks-group">' + done.map(taskHTML).join('') + '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function taskHTML(t) {
+  var streak = t.streak > 0 ? '<span class="streak-tag">🔥 ' + t.streak + ' day' + (t.streak>1?'s':'') + '</span>' : '';
+  return '<div class="task-card type-' + t.type + (t.done?' done':'') + '">' +
+    '<div class="check" onclick="toggle(' + t.id + ')">' + (t.done?'✓':'') + '</div>' +
+    '<div class="task-info"><div class="task-name">' + esc(t.text) + '</div>' +
+    '<div class="task-meta"><span class="type-tag ' + t.type + '">' + (t.type==='todo'?'Task':'Habit') + '</span>' + streak + '</div></div>' +
+    '<button class="del-btn" onclick="del(' + t.id + ')">✕</button></div>';
+}
+
+// ═══════════════════════════════
+//  MONTH RENDER
+// ═══════════════════════════════
+function renderMonth() {
+  var y = calMonth.year, m = calMonth.month;
+  document.getElementById('month-nav-label').textContent = MONTHS[m] + ' ' + y;
+
+  var firstDay    = new Date(y, m, 1).getDay();
+  var daysInMonth = new Date(y, m+1, 0).getDate();
+  var todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
+
+  var html = '';
+  for (var i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+  for (var d = 1; d <= daysInMonth; d++) {
+    var key = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    var isToday  = y===todayY && m===todayM && d===todayD;
+    var isFuture = new Date(y,m,d) > today;
+    var rec = history[key];
+    var cls = 'cal-day';
+    var pctLabel = '';
+    if (isFuture) {
+      cls += ' future';
+    } else if (rec) {
+      cls += ' heat-' + heatLevel(rec.pct);
+      pctLabel = rec.pct + '%';
+    } else {
+      cls += ' heat-0';
+    }
+    if (isToday) cls += ' today-ring';
+    html += '<div class="' + cls + '" title="' + key + (rec?' — '+rec.pct+'%':'') + '">' +
+      '<span class="cal-day-num">' + d + '</span>' +
+      (pctLabel ? '<span class="cal-day-pct">' + pctLabel + '</span>' : '') +
+      '</div>';
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+
+  var keys = [];
+  for (var d2 = 1; d2 <= daysInMonth; d2++) {
+    keys.push(y+'-'+String(m+1).padStart(2,'0')+'-'+String(d2).padStart(2,'0'));
+  }
+  var recorded = keys.filter(function(k){ return !!history[k]; });
+  var perfect  = recorded.filter(function(k){ return history[k].pct === 100; }).length;
+  var avgPct   = recorded.length
+    ? Math.round(recorded.reduce(function(s,k){ return s + history[k].pct; }, 0) / recorded.length)
+    : 0;
+
+  document.getElementById('month-stats').innerHTML =
+    mBox(recorded.length, 'Active days',  'var(--blue)') +
+    mBox(perfect,         'Perfect days', 'var(--green)') +
+    mBox(avgPct + '%',    'Avg. done',    'var(--gold)');
+}
+
+function mBox(val, lbl, color) {
+  return '<div class="m-stat"><div class="m-stat-val" style="color:'+color+'">' + val + '</div><div class="m-stat-lbl">' + lbl + '</div></div>';
+}
+
+document.getElementById('month-prev').addEventListener('click', function() {
+  calMonth.month--;
+  if (calMonth.month < 0) { calMonth.month = 11; calMonth.year--; }
+  renderMonth();
+});
+document.getElementById('month-next').addEventListener('click', function() {
+  calMonth.month++;
+  if (calMonth.month > 11) { calMonth.month = 0; calMonth.year++; }
+  renderMonth();
+});
+
+// ═══════════════════════════════
+//  YEAR RENDER
+// ═══════════════════════════════
+function renderYear() {
+  var y = today.getFullYear();
+  document.getElementById('year-title').textContent = y + ' Overview';
+
+  var jan1 = new Date(y, 0, 1);
+  var startOffset = jan1.getDay();
+  var dec31 = new Date(y, 11, 31);
+  var totalDays = Math.floor((dec31 - jan1) / 86400000) + 1;
+
+  var weeks = [];
+  var week  = [];
+  for (var i = 0; i < startOffset; i++) week.push(null);
+  for (var i2 = 0; i2 < totalDays; i2++) {
+    week.push(new Date(y, 0, i2+1));
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+
+  // Month labels
+  var labelHTML = '';
+  var lastWeekIdx = -1;
+  for (var m = 0; m < 12; m++) {
+    var firstOfMonth = new Date(y, m, 1);
+    var dayOfYear    = Math.floor((firstOfMonth - jan1) / 86400000);
+    var weekIdx      = Math.floor((dayOfYear + startOffset) / 7);
+    var nextFirst    = m < 11 ? new Date(y, m+1, 1) : new Date(y+1, 0, 1);
+    var nextDay      = Math.floor((nextFirst - jan1) / 86400000);
+    var nextWeek     = Math.floor((nextDay + startOffset) / 7);
+    var span         = Math.max(1, nextWeek - weekIdx);
+    labelHTML += '<span class="year-month-lbl" style="width:' + (span * 14) + 'px">' + MONTHS[m].slice(0,3) + '</span>';
+  }
+  document.getElementById('year-month-labels').innerHTML = labelHTML;
+
+  // DOW labels
+  document.getElementById('year-dow-labels').innerHTML =
+    ['S','M','T','W','T','F','S'].map(function(d){ return '<div class="year-dow-lbl">' + d + '</div>'; }).join('');
+
+  // Weeks
+  var weeksHTML = '';
+  weeks.forEach(function(wk) {
+    weeksHTML += '<div class="year-week">';
+    wk.forEach(function(d) {
+      if (!d) { weeksHTML += '<div class="year-cell empty"></div>'; return; }
+      var key     = dateKey(d);
+      var rec     = history[key];
+      var isFuture= d > today;
+      var cls     = 'year-cell ' + (isFuture ? 'empty' : rec ? 'heat-' + heatLevel(rec.pct) : 'heat-0');
+      var tip     = rec ? key + ' — ' + rec.pct + '%' : key;
+      weeksHTML += '<div class="' + cls + '" title="' + tip + '"></div>';
+    });
+    weeksHTML += '</div>';
+  });
+  document.getElementById('year-weeks').innerHTML = weeksHTML;
+
+  // Year stats
+  var allKeys    = Object.keys(history).filter(function(k){ return k.startsWith(y + '-'); });
+  var activeDays = allKeys.length;
+  var perfectD   = allKeys.filter(function(k){ return history[k].pct === 100; }).length;
+  var totalDone  = allKeys.reduce(function(s,k){ return s + history[k].done; }, 0);
+  var bestStreak = calcBestStreak(y);
+
+  document.getElementById('year-stats').innerHTML =
+    yBox(activeDays, 'Active days',   'blue') +
+    yBox(perfectD,   'Perfect days',  'green') +
+    yBox(totalDone,  'Tasks done',    'gold') +
+    yBox(bestStreak + 'd', 'Best streak', 'blue');
+}
+
+function yBox(val, lbl, cls) {
+  return '<div class="y-stat"><div class="y-stat-val ' + cls + '">' + val + '</div><div class="y-stat-lbl">' + lbl + '</div></div>';
+}
+
+function calcBestStreak(y) {
+  var best = 0, cur = 0;
+  var start = new Date(y, 0, 1);
+  var end   = new Date(Math.min(today.getTime(), new Date(y, 11, 31).getTime()));
+  for (var d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    var k = dateKey(new Date(d));
+    if (history[k] && history[k].pct > 0) { cur++; if (cur > best) best = cur; }
+    else cur = 0;
+  }
+  return best;
+}
+
+// ═══════════════════════════════
+//  DEMO SEED (so views look alive)
+// ═══════════════════════════════
+function seedDemo() {
+  if (Object.keys(history).length > 0) return;
+  var now = new Date();
+  for (var i = 1; i <= 90; i++) {
+    var d = new Date(now);
+    d.setDate(d.getDate() - i);
+    var k = dateKey(d);
+    if (!history[k]) {
+      var total = Math.floor(Math.random()*6)+2;
+      var done  = Math.floor(Math.random()*(total+1));
+      history[k] = { total: total, done: done, pct: Math.round(done/total*100) };
+    }
+  }
+  localStorage.setItem('focus-history', JSON.stringify(history));
+}
+
+// ═══════════════════════════════
+//  EVENTS & INIT
+// ═══════════════════════════════
+document.getElementById('add-btn').addEventListener('click', addTask);
+document.getElementById('task-input').addEventListener('keydown', function(e){ if (e.key === 'Enter') addTask(); });
+document.getElementById('chip-todo').addEventListener('click',  function(){ setType('todo'); });
+document.getElementById('chip-habit').addEventListener('click', function(){ setType('habit'); });
+
+// Expose for onclick="" handlers
+window.switchTab = switchTab;
+window.setType   = setType;
+window.addTask   = addTask;
+window.toggle    = toggle;
+window.del       = del;
+
+calMonth = { year: today.getFullYear(), month: today.getMonth() };
+seedDemo();
+renderToday();
+</script>
+</body>
+</html>
