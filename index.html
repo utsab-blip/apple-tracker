@@ -2,6 +2,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <script>
   if ('serviceWorker' in navigator) {
@@ -354,11 +357,15 @@
       position:relative;
     }
     .cal-day-inner {
-      border-radius:8px;
+      border-radius:12px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(8px);
       display:flex;flex-direction:column;
       align-items:center;justify-content:center;
-      aspect-ratio:1;
+      aspect-ratio: 1 / 1;
       width:100%;
+      font-size: 14px;
+      color: var(--text2);
     }
     .cal-day.empty .cal-day-inner  { background:transparent; }
     .cal-day.future .cal-day-inner { background:rgba(255,255,255,.03);color:var(--text3); }
